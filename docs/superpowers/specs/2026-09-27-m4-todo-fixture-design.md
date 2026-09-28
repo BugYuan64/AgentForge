@@ -16,7 +16,7 @@ M4 为 AgentForge 后续的代码修改与验收练习提供一个可重建的�
 
 ## 示例 API 与故意缺陷
 
-使用 Python 3.11+、FastAPI、Pydantic、pytest、httpx、Uvicorn。应用在内存中保存 Todo；每次调用 `create_app()` 得到独立状态，不使用数据库或外部接口。
+使用 Python 3.11+、FastAPI、Pydantic、pytest、httpx2、Uvicorn。应用在内存中保存 Todo；每次调用 `create_app()` 得到独立状态，不使用数据库或外部接口。[Starlette 测试客户端文档](https://www.starlette.io/testclient/)目前建议使用 httpx2，避免旧 httpx 路径的弃用警告。
 
 - `POST /todos` 接受 `{"title": "学习 AgentForge"}`，返回 201、递增整数 `id`、原样 `title` 和 `completed: false`。
 - `GET /todos/{todo_id}` 对已存在 ID 返回 200 和对应 Todo。
