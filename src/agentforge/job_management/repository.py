@@ -3,8 +3,8 @@
 from dataclasses import replace
 from typing import Protocol
 
-from agentforge.domain.job import Job
-from agentforge.domain.job_status import JobStatus, transition_status
+from agentforge.job_management.model import Job
+from agentforge.job_management.status import JobStatus, transition_status
 
 
 class JobRepository(Protocol):

@@ -1,8 +1,8 @@
 """Application use cases for Jobs."""
 
-from agentforge.domain.job import Job
-from agentforge.domain.job_status import JobStatus
-from agentforge.job_repository import JobRepository
+from agentforge.job_management.model import Job
+from agentforge.job_management.repository import JobRepository
+from agentforge.job_management.status import JobStatus
 
 
 class JobService:

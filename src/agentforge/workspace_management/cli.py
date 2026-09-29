@@ -6,9 +6,9 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from agentforge.workspace_manager import WorkspaceError, WorkspaceManager
+from agentforge.workspace_management.manager import WorkspaceError, WorkspaceManager
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def main(argv: Sequence[str] | None = None) -> int:

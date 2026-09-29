@@ -3,8 +3,8 @@
 import argparse
 from collections.abc import Sequence
 
-from agentforge.job_repository import InMemoryJobRepository
-from agentforge.job_service import JobService
+from agentforge.job_management.repository import InMemoryJobRepository
+from agentforge.job_management.service import JobService
 
 
 def main(argv: Sequence[str] | None = None) -> int:

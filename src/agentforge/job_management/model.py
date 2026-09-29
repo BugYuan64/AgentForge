@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from agentforge.domain.job_status import JobStatus
+from agentforge.job_management.status import JobStatus
 
 
 @dataclass(frozen=True, slots=True)

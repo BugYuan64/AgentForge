@@ -17,7 +17,23 @@ AgentForge 是一个学习式开发的软件工程 Agent 项目：在受控工�
 
 ## 技术栈、目录与环境
 
-当前 AgentForge 使用 Python 3.11+、标准库、Git、pytest 和 Ruff；没有运行时第三方依赖。`src/agentforge/` 存放领域规则、Job 服务和工作区管理器；`tests/unit/` 验证它们；`examples/todo_fixture/` 是独立的 FastAPI/Pydantic Todo 模板；`scripts/create_todo_baseline.py` 生成固定本地仓库；`docs/superpowers/` 保存各步设计与实施记录。目标中的 Docker、PostgreSQL、FastAPI 服务、Vue 等技术只在对应阶段引入。
+当前 AgentForge 使用 Python 3.11+、标准库、Git、pytest 和 Ruff；没有运行时第三方依赖。实现按功能放在 `src/agentforge/job_management/` 与 `src/agentforge/workspace_management/`，目录内再按职责拆分：
+
+```text
+src/agentforge/
+├─ __init__.py          集中注册旧导入路径的兼容映射
+├─ job_management/      Job 领域对象、状态规则、存储接口、应用服务和演示 CLI
+│  ├─ model.py          Job 数据对象
+│  ├─ status.py         JobStatus 与合法转换
+│  ├─ repository.py     JobRepository 协议与内存实现
+│  ├─ service.py        创建、查询、取消和假执行用例
+│  └─ cli.py            Job 生命周期演示入口
+├─ workspace_management/ Git 工作区管理及生命周期
+│  ├─ manager.py        固定提交校验、工作区生命周期与清理保护
+│  └─ cli.py            创建、查询和清理命令
+```
+
+新实现从功能目录导入；包的 `__init__.py` 注册旧导入名，使未修改的 `tests/` 继续工作。旧的 `python -m agentforge.cli` 与 `python -m agentforge.workspace_cli` 命令改为上面两个功能目录内的入口。`tests/unit/` 验证当前行为；`examples/todo_fixture/` 是独立的 FastAPI/Pydantic Todo 模板；`scripts/create_todo_baseline.py` 生成固定本地仓库；`docs/superpowers/` 保存各步设计与实施记录。`.local/todo_baseline/` 和 `.local/workspaces/` 是被 Git 忽略的运行数据，不属于 Python 代码包。目标中的 Docker、PostgreSQL、FastAPI 服务、Vue 等技术只在对应阶段引入。
 
 需要已安装 Git 和 Python 3.11+。在项目根目录创建虚拟环境并安装开发依赖：
 
@@ -33,7 +49,7 @@ python -m venv .venv
 在项目根目录运行（需要 Python 3.11+ 和已安装的开发依赖）：
 
 ```powershell
-.\.venv\Scripts\python.exe -m agentforge.cli demo
+.\.venv\Scripts\python.exe -m agentforge.job_management.cli demo
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe -m ruff check src tests scripts examples/todo_fixture
 ```
@@ -72,9 +88,9 @@ Pop-Location
 先按上节生成 `.local/todo_baseline/`。M5 命令默认读取 `examples/todo_baseline.commit`，在 `.local/workspaces/` 建立与来源仓库隔离的工作区。命令输出 JSON，`create` 返回的 `id` 用于后续查询和清理：
 
 ```powershell
-.\.venv\Scripts\python.exe -m agentforge.workspace_cli create
-.\.venv\Scripts\python.exe -m agentforge.workspace_cli show <id>
-.\.venv\Scripts\python.exe -m agentforge.workspace_cli remove <id>
+.\.venv\Scripts\python.exe -m agentforge.workspace_management.cli create
+.\.venv\Scripts\python.exe -m agentforge.workspace_management.cli show <id>
+.\.venv\Scripts\python.exe -m agentforge.workspace_management.cli remove <id>
 ```
 
-`src/agentforge/workspace_manager.py` 验证固定提交、检查来源仓库状态、调用 `git worktree`，并在 `.local/workspaces/.records/` 保存生命周期记录。创建时来源仓库有已暂存、未暂存或未跟踪修改会报错。`show` 实时报告工作区是否有变更；`remove` 对已修改文件、未跟踪或忽略文件、新增提交一律拒绝，成功后保留 `removed` 记录。M5 没有强制清理命令；需要先自行审查并处理候选修改。`tests/unit/test_workspace_manager.py` 和 `test_workspace_cli.py` 覆盖隔离、失败路径与清理保护。
+`src/agentforge/workspace_management/manager.py` 验证固定提交、检查来源仓库状态、调用 `git worktree`，并在 `.local/workspaces/.records/` 保存生命周期记录。创建时来源仓库有已暂存、未暂存或未跟踪修改会报错。`show` 实时报告工作区是否有变更；`remove` 对已修改文件、未跟踪或忽略文件、新增提交一律拒绝，成功后保留 `removed` 记录。M5 没有强制清理命令；需要先自行审查并处理候选修改。`tests/unit/test_workspace_manager.py` 和 `test_workspace_cli.py` 覆盖隔离、失败路径与清理保护。

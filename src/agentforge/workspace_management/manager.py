@@ -76,6 +76,7 @@ def _git(repository: Path, *arguments: str) -> str:
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         detail = exc.stderr.strip() if isinstance(exc, subprocess.CalledProcessError) else str(exc)
