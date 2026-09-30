@@ -2,7 +2,7 @@
 
 **目标**：从 M4 固定提交建立独立 Git 工作区，持久记录生命周期，并在创建和清理时保护用户改动。
 
-**设计**：`docs/superpowers/specs/2026-09-29-m5-workspace-design.md`
+**设计**：`docs/superpower/specs/2026-09-29-m5-workspace-design.md`
 
 ## 任务 1：管理器与行为测试
 
