@@ -10,7 +10,12 @@ from pathlib import Path
 from time import monotonic
 from uuid import uuid4
 
-from agentforge.workspace_management.manager import WorkspaceError, WorkspaceManager, WorkspaceState
+from agentforge.workspace_management.manager import (
+    WorkspaceError,
+    WorkspaceManager,
+    WorkspaceRecord,
+    WorkspaceState,
+)
 
 TEST_COMMAND = (
     "python", "-m", "pytest", "-q", "-W", "error", "-p", "no:cacheprovider",
@@ -102,13 +107,18 @@ class ContainerTestRunner:
         if result.returncode != 0:
             raise _DockerCommandError(f"docker logs failed (exit {result.returncode})")
 
+    def _execution(self, workspace: WorkspaceRecord) -> tuple[Path, tuple[str, ...]]:
+        """Select the protected execution source and fixed command."""
+        return workspace.path, TEST_COMMAND
+
     def run(self, workspace_id: str) -> TestRunResult:
         """Run the fixed test; preserve its real exit code and a durable log."""
-        workspace = self.workspace_manager.get(workspace_id)
+        workspace = self.workspace_manager.get(workspace_id, inspect_changes=False)
         if workspace.state is not WorkspaceState.ACTIVE:
             raise WorkspaceError(
                 f"workspace is not active: {workspace_id} ({workspace.state.value})"
             )
+        execution_path, command = self._execution(workspace)
 
         log_directory = self.workspace_manager.workspaces_directory / ".runs"
         source = self.workspace_manager.source_repository
@@ -128,17 +138,17 @@ class ContainerTestRunner:
         stage = "image inspect"
         self._append(
             log_path,
-            f"run_id={run_id}\nworkspace_id={workspace_id}\ncommand={' '.join(TEST_COMMAND)}",
+            f"run_id={run_id}\nworkspace_id={workspace_id}\ncommand={' '.join(command)}",
         )
 
         try:
-            if "," in str(workspace.path):
+            if "," in str(execution_path):
                 raise _DockerCommandError("workspace path contains a comma unsupported by --mount")
             image_id = self._docker("image", "inspect", "--format", "{{.Id}}", self.image)
             if re.fullmatch(r"sha256:[0-9a-f]{64}", image_id) is None:
                 raise _DockerCommandError(f"invalid local image ID: {image_id}")
 
-            mount = f"type=bind,source={workspace.path},target=/workspace,readonly"
+            mount = f"type=bind,source={execution_path},target=/workspace,readonly"
             stage = "create"
             create_attempted = True
             container_id = self._docker(
@@ -151,7 +161,7 @@ class ContainerTestRunner:
                 "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp",
                 "--env", "PYTHONDONTWRITEBYTECODE=1",
                 "--env", "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1",
-                image_id, *TEST_COMMAND,
+                image_id, *command,
             )
             if not container_id:
                 raise _DockerCommandError("docker create returned no container ID")

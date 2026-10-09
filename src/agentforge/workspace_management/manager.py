@@ -40,7 +40,7 @@ class WorkspaceRecord:
     created_at: str
     removed_at: str | None = None
     error: str | None = None
-    has_changes: bool = False
+    has_changes: bool | None = False
 
     def to_dict(self) -> dict[str, str | bool | None]:
         """Return a JSON-compatible view for CLI output and records."""
@@ -169,8 +169,12 @@ class WorkspaceManager:
             ) from exc
         return active
 
-    def get(self, workspace_id: str) -> WorkspaceRecord:
-        """Read a saved record and inspect an active worktree's current state."""
+    def get(self, workspace_id: str, *, inspect_changes: bool = True) -> WorkspaceRecord:
+        """Validate a saved workspace; optionally inspect its current change state.
+
+        Identity-only callers receive has_changes=None rather than a claim that
+        the candidate is clean. The default retains M5's full change inspection.
+        """
         path = self._record_path(workspace_id)
         if not path.is_file():
             raise KeyError(f"unknown workspace id: {workspace_id}")
@@ -209,6 +213,8 @@ class WorkspaceManager:
         )).resolve()
         if source_common != candidate_common:
             raise WorkspaceError(f"workspace is no longer attached to source: {record.path}")
+        if not inspect_changes:
+            return replace(record, has_changes=None)
         changed = bool(_git(
             record.path, "status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching"
         ))

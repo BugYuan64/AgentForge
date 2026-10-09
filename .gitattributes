@@ -1,0 +1,47 @@
+# Use LF for detected text, matching .editorconfig on every platform.
+# Attributes do not rewrite existing working files. Convert existing CRLF or
+# mixed line endings to LF once to avoid "CRLF will be replaced by LF" warnings.
+* text=auto eol=lf
+
+# Python, documentation, configuration and dependency files.
+*.py text eol=lf diff=python
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.txt text eol=lf
+*.in text eol=lf
+*.lock text eol=lf
+*.commit text eol=lf
+.editorconfig text eol=lf
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.dockerignore text eol=lf
+
+# Container definitions and scripts.
+Dockerfile text eol=lf
+Dockerfile.* text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Patch hunk contents must retain exact bytes across Git checkouts.
+*.patch -text -eol
+*.diff -text -eol
+examples/todo_fix.patch -text -eol
+
+# Binary assets must not undergo text conversion or text merges.
+*.png binary -eol
+*.jpg binary -eol
+*.jpeg binary -eol
+*.gif binary -eol
+*.webp binary -eol
+*.ico binary -eol
+*.pdf binary -eol
+*.zip binary -eol
+*.gz binary -eol
+*.7z binary -eol

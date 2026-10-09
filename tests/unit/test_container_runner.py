@@ -95,7 +95,14 @@ def test_fixed_todo_command_uses_only_a_constrained_candidate_mount(tmp_path: Pa
     assert not state["exists"]
     create = next(call for call in state["calls"] if call[0] == "create")
     assert create[-9:] == [
-        "python", "-m", "pytest", "-q", "-W", "error", "-p", "no:cacheprovider",
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "-W",
+        "error",
+        "-p",
+        "no:cacheprovider",
         "tests/test_todos.py",
     ]
     mount = create[create.index("--mount") + 1]
@@ -107,8 +114,16 @@ def test_fixed_todo_command_uses_only_a_constrained_candidate_mount(tmp_path: Pa
     assert manager.source_repository not in result.log_path.parents
     assert workspace.path not in result.log_path.parents
     for option in (
-        "--user", "--network", "--read-only", "--cap-drop", "--cpus", "--memory",
-        "--memory-swap", "--pids-limit", "--tmpfs", "--security-opt",
+        "--user",
+        "--network",
+        "--read-only",
+        "--cap-drop",
+        "--cpus",
+        "--memory",
+        "--memory-swap",
+        "--pids-limit",
+        "--tmpfs",
+        "--security-opt",
     ):
         assert option in create
     assert create[create.index("--user") + 1] == "65534:65534"
@@ -154,9 +169,9 @@ def test_timeout_kills_and_removes_container_with_partial_log(tmp_path: Path) ->
     manager, workspace = create_workspace(tmp_path)
     docker_command, state_path = fake_docker(tmp_path, wait_sleep=2)
 
-    result = ContainerTestRunner(
-        manager, timeout_seconds=0.2, docker_command=docker_command
-    ).run(workspace.id)
+    result = ContainerTestRunner(manager, timeout_seconds=0.2, docker_command=docker_command).run(
+        workspace.id
+    )
 
     assert result.state is RunState.TIMED_OUT
     assert result.exit_code is None
@@ -183,7 +198,9 @@ def test_changed_candidate_can_run_without_touching_source(tmp_path: Path) -> No
     assert manager.get(workspace.id).has_changes
     status = subprocess.run(
         ["git", "-C", str(manager.source_repository), "status", "--porcelain"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert status.stdout == ""
 
@@ -200,3 +217,25 @@ def test_removed_workspace_is_rejected_before_docker(tmp_path: Path) -> None:
         ContainerTestRunner(manager, docker_command=docker_command).run(workspace.id)
 
     assert json.loads(state_path.read_text(encoding="utf-8"))["calls"] == []
+
+
+def test_fixed_execution_does_not_require_a_full_candidate_status_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from agentforge.container_execution.runner import ContainerTestRunner, RunState
+    from agentforge.workspace_management import manager as manager_module
+
+    manager, workspace = create_workspace(tmp_path)
+    docker_command, _ = fake_docker(tmp_path)
+    original_git = manager_module._git
+
+    def git_without_status(repository, *arguments):
+        if arguments[0] == "status":
+            raise manager_module.WorkspaceError("candidate status scan exceeds resource budget")
+        return original_git(repository, *arguments)
+
+    monkeypatch.setattr(manager_module, "_git", git_without_status)
+    result = ContainerTestRunner(manager, docker_command=docker_command).run(workspace.id)
+
+    assert result.state is RunState.COMPLETED
