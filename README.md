@@ -10,13 +10,13 @@ AgentForge 是一个学习式开发的软件工程 Agent 项目：在受控工�
 
 ## 当前状态
 
-仓库保留最小 Python 项目配置与开发工具设置，已完成 M1 的状态规则、M2 的 Job 与内存存储、M3 的应用服务和 CLI 演示、M4 的固定 FastAPI Todo 示例目标仓库、M5 的本地 Git 工作区管理、M6 的受限容器测试、M7 的受控只读文件工具，以及 M8 的补丁、状态/Diff 和固定测试工具。M8 已通过真实容器验收：预设补丁将候选 Todo 测试从 4 passed、1 failed 修复为 5 passed，来源仓库保持不变。M9 的独立验收器已完成并通过验收：记录修改前基线，对固定检查结果分类，并将报告绑定候选内容与环境。M3 的执行仍是确定性的模拟成功；M6/M9 只运行预设的 Todo pytest 命令，不接受任意命令。M10 综合 Diff/报告、真实 Agent、AgentForge API、Worker 和前端仍在规划中。
+仓库保留最小 Python 项目配置与开发工具设置，已完成 M1 的状态规则、M2 的 Job 与内存存储、M3 的应用服务和 CLI 演示、M4 的固定 FastAPI Todo 示例目标仓库、M5 的本地 Git 工作区管理、M6 的受限容器测试、M7 的受控只读文件工具，以及 M8 的补丁、状态/Diff 和固定测试工具。M8 已通过真实容器验收：预设补丁将候选 Todo 测试从 4 passed、1 failed 修复为 5 passed，来源仓库保持不变。M9 的独立验收器已完成并通过验收：记录修改前基线，对固定检查结果分类，并将报告绑定候选内容与环境。M10 的完整 Diff、逐项测试摘要、证据副本与跨进程审查报告也已通过真实 Docker 与默认 CLI 验收。M3 的执行仍是确定性的模拟成功；M6/M9 只运行预设的 Todo pytest 命令，不接受任意命令。真实 Agent、AgentForge API、Worker 和前端仍在规划中。
 
-开发时一次只完成 [阶段目标.md](阶段目标.md) 中的一个步骤。当前 M0–M9 已完成，M10 尚未开始。AgentForge 的核心领域对象仍用普通 Python；示例 FastAPI 项目在 HTTP 请求边界使用 Pydantic。
+开发时一次只完成 [阶段目标.md](阶段目标.md) 中的一个步骤。当前 M0–M10 已完成，M11 尚未开始。AgentForge 的核心领域对象仍用普通 Python；示例 FastAPI 项目在 HTTP 请求边界使用 Pydantic。
 
 ## 技术栈、目录与环境
 
-当前 AgentForge 使用 Python 3.11+、标准库、Git、Docker、pytest 和 Ruff；没有 Python 运行时第三方依赖。实现按功能放在 `src/agentforge/job_management/`、`src/agentforge/workspace_management/`、`src/agentforge/container_execution/`、`src/agentforge/workspace_tools/` 与 `src/agentforge/acceptance/`，目录内再按职责拆分：
+当前 AgentForge 使用 Python 3.11+、标准库、Git、Docker、pytest 和 Ruff；没有 Python 运行时第三方依赖。实现按功能放在 `src/agentforge/job_management/`、`src/agentforge/workspace_management/`、`src/agentforge/container_execution/`、`src/agentforge/workspace_tools/`、`src/agentforge/acceptance/` 与 `src/agentforge/reporting/`，目录内再按职责拆分：
 
 ```text
 src/agentforge/
@@ -38,6 +38,11 @@ src/agentforge/
 │  ├─ checks.py         固定五项检查、JUnit 传输与证据校验
 │  ├─ service.py        基线持久化、同镜像比较、失败分类与过期检测
 │  └─ cli.py            baseline / verify / show JSON 命令入口
+├─ reporting/           完整候选 Diff、独立证据复核与审查报告
+│  ├─ diff.py           从固定基线与候选原始字节生成完整差异
+│  ├─ evidence.py       有界读取、日志/XML 校验及完整证据副本
+│  ├─ service.py        报告构建、JSON/Markdown 保存与查询校验
+│  └─ cli.py            build / show JSON 命令入口
 └─ workspace_tools/     活动工作区的受控文件、补丁、Git 查询与测试工具
    ├─ contracts.py      统一请求、结果与宿主控制的限制
    ├─ paths.py          相对路径、Git 元数据与链接保护
@@ -57,7 +62,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-当前无需模型密钥或数据库。运行 M6/M8/M9 的固定测试需本机 Docker Engine 的 Linux 容器模式，并先构建下文的本地镜像；测试容器自身不联网。Todo 示例有单独的依赖文件和启动说明；AgentForge 本身尚无 Web 服务。下面的命令从项目根目录运行。
+当前无需模型密钥或数据库。运行 M6/M8/M9 的固定测试需本机 Docker Engine 的 Linux 容器模式，并先构建下文的本地镜像；测试容器自身不联网。M10 的报告命令只读取候选与已有验收证据，不启动 Docker；能够确认通过的报告仍需要事先完成 M9 的基线与候选验收。Todo 示例有单独的依赖文件和启动说明；AgentForge 本身尚无 Web 服务。下面的命令从项目根目录运行。
 
 ## 本地演示与验证
 
@@ -207,6 +212,54 @@ docker build -t agentforge-todo-test:m6 -f containers/todo-test/Dockerfile examp
 
 `service.py` 比较每项检查，分别记录 `existing_failures`、`new_failures` 与 `fixed_failures`。运行后重新检查实际候选的 HEAD/摘要，发生变化则标记 `stale`；`show` 跨进程加载最新报告，再检查当前候选，返回 `recorded_state` 和 `valid_for_current_candidate`，原先通过的报告也会因修改失效。
 
-JSON 报告位于 `.local/workspaces/.acceptance/<id>/<report-id>.json`，`baseline.json` 指向有效基线，`latest.json` 指向最新尝试；完整日志与提取的 XML 位于 `.local/workspaces/.runs/<run-id>.log`、`<run-id>.xml`。报告包含固定提交、规则摘要、候选 HEAD/内容摘要、基线/运行 ID、宿主及容器环境、实际退出码、耗时和证据路径。它们都位于候选工作区与固定来源仓库之外；本地 JSON 是验收证据，Job 数据库及 M10 综合 Diff/报告仍待实现。
+JSON 报告位于 `.local/workspaces/.acceptance/<id>/<report-id>.json`，`baseline.json` 指向有效基线，`latest.json` 指向最新尝试；完整日志与提取的 XML 位于 `.local/workspaces/.runs/<run-id>.log`、`<run-id>.xml`。报告包含固定提交、规则摘要、候选 HEAD/内容摘要、基线/运行 ID、宿主及容器环境、实际退出码、耗时和证据路径。它们都位于候选工作区与固定来源仓库之外；本地 JSON 是验收证据，M10 在这些证据上构建独立审查报告，Job 数据库仍待实现。
 
 M9 的真实 Docker 验收入口为 `.\.venv\Scripts\python.exe -m pytest tests/integration/test_acceptance.py -q`。2026-10-07 本轮全部 AgentForge `tests/integration` 得到 **5 passed，258.42 秒，无跳过**。默认 CLI 演示依次验证有效基线 `recorded`（CLI 退出 0、Todo pytest 退出 1）、未修复候选 `existing_failure`（退出 1）、预设补丁后 `passed`（CLI 与 Todo pytest 均退出 0），再验证查询过期 `stale`（退出 2）、新增 `test_post_creates_todo` 回归 `new_failure`（退出 1）与修改权威测试 `rejected`（退出 2）。演示最后恢复候选并记录为 `removed`，固定来源保持不变；完整结果见 [M9 CLI 验收记录](.local/workspaces/.runs/m9-cli-acceptance-20261007.json)。当前 M9 已完成；全量单元测试 **332 passed**，Ruff 与 Diff 格式检查通过。
+
+## M10 Diff 与审查报告（已完成）
+
+在 M9 `verify <id>` 保存候选验收之后构建并查询报告：
+
+```powershell
+.\.venv\Scripts\python.exe -m agentforge.reporting.cli build <id>
+.\.venv\Scripts\python.exe -m agentforge.reporting.cli show <id>
+```
+
+报告 CLI 默认使用 `.local/todo_baseline/`、`.local/workspaces/` 和 `examples/todo_baseline.commit`，可在子命令前通过 `--source`、`--root`、`--commit-file` 指定宿主配置。调用关系为 `reporting.cli → ReportingService → M9 snapshot / 已保存的验收 JSON、日志与 XML`；报告构建和查询不运行测试、不启动 Docker、不修改候选或 Job 状态，也不接受检查名单、镜像或运行时覆盖参数。
+
+`diff.py` 比较固定提交的原始文件字节与当前候选快照，覆盖已提交、已暂存、未暂存、未跟踪和忽略文件的内容变化，并记录新增、修改、删除文件的路径、字节数与前后 SHA256。文本差异保存完整 unified Diff，保留缺失末尾换行的标记；较大比较超出匹配预算时使用完整文件替换 hunk，保留全部内容。二进制或非 UTF-8 内容只给出字节数和摘要，并明确记入未验证事项，不宣称提供了文本差异。M10 不复用 M8 面向终端的截断 Diff 输出。
+
+每次 `build` 在候选目录之外创建一个新的报告目录；证据完整时包含以下文件：
+
+```text
+.local/workspaces/.reports/<id>/
+├─ latest.json                最新报告 ID 与 report.json 的 SHA256
+└─ <report-id>/
+   ├─ report.json             结构化报告、逐项检查与完整产物引用
+   ├─ report.md               可直接审查的 Markdown 报告
+   ├─ changes.diff            完整文本差异或二进制摘要
+   ├─ baseline.json           M9 基线验收 JSON 原始副本
+   ├─ baseline.log            基线完整运行日志副本
+   ├─ baseline.xml            基线 JUnit XML 副本
+   ├─ candidate.json          M9 候选验收 JSON 原始副本
+   ├─ candidate.log           候选完整运行日志副本
+   └─ candidate.xml           候选 JUnit XML 副本
+```
+
+Markdown 中的变更路径可直接指向候选代码，并链接完整 Diff 与证据文件；已删除文件保留路径说明。JSON 与 Markdown 展示固定基线、候选 HEAD/内容摘要、验收记录 ID、五项检查的基线与候选结果、原有/新增/已修复失败、运行 ID、精确镜像 ID、检查命令、退出码、耗时和未验证事项。完整环境与隔离配置保留在验收 JSON 中。CLI stdout 输出结构化摘要、全部逐项检查与产物路径/字节数/SHA256 引用，完整 Diff 和日志保存在文件中，不嵌入终端输出。
+
+`evidence.py` 重新校验日志中的 JUnit 传输、保存的 XML、检查身份和退出码，核对验收分类、固定规则与基线/候选镜像。证据复制有硬上限：单份日志 8 MiB、XML 1 MiB、验收 JSON 1 MiB、最终报告 JSON 4 MiB；超限不截断后冒充完整证据，而是保留未确认结论。`show` 校验 `latest.json` 对报告元数据的 SHA256、所有已引用产物的字节数与 SHA256，并重新检查当前候选 HEAD、全树摘要和规则；元数据或证据被修改、遗漏，以及当前候选变化均不能继续显示有效通过。查询返回 `recorded_state` 和 `valid_for_current_candidate`，保存的历史报告保持可审查。
+
+| 报告状态 | 含义 | CLI 退出码 |
+|---|---|---|
+| `passed` | 当前候选与证据一致，固定五项检查全部通过 | 0 |
+| `existing_failure` / `new_failure` | 原有失败仍存在或出现新失败 | 1 |
+| `unverified` | 缺少候选验收，或保存证据未能完整确认 | 2 |
+| `stale` | 候选或规则已变化，现有检查不能代表当前版本 | 2 |
+| `rejected` | 候选越界、来源或快照无法安全确认 | 2 |
+
+`passed` 只证明固定五项检查通过，不代表其他功能、性能、安全行为或用户接受；这些事项始终明确列出。报告构建不会将 Job 标为成功。报告读取面向本地主机的稳定文件系统，SHA256 用于一致性复核，不提供独立签名或对能同时改写指针和全部证据者的认证保证。
+
+M10 的真实 Docker 验收入口为 `.\.venv\Scripts\python.exe -m pytest tests/integration/test_reporting.py -q`。2026-10-09 用户恢复 Docker 后，全部 `tests/integration` 得到 **6 passed，124.55 秒，无跳过**；全量单元测试 **408 passed、1 skipped，462.78 秒**，唯一跳过项是 Windows 未允许创建真实符号链接，其他路径及硬链接保护检查通过。Ruff 与 `git diff --check` 通过。最初 Docker 不可用导致的六项跳过不作为完成证据；上述结果是恢复后的实际运行。
+
+默认 CLI 已验证 `baseline → 未修复 verify/build（退出 1）→ 固定补丁 → verify/build/show passed（退出 0）→ 修改后 show stale（退出 2）→ removed 后历史查询 stale`。报告保存八项完整产物引用，文件大小与 SHA256 全部核对；来源提交与状态不变，演示工作区和本轮容器已清理。见 [M10 CLI 轨迹](.local/workspaces/.runs/m10-cli-acceptance-20261009.json)、[示例报告](.local/workspaces/.reports/9613dd5a84cc402a801899f4f5a7544f/c791da19d3f449ec8bda8e2ea2d18d16/report.md) 与 [实施计划](docs/superpower/plans/2026-10-09-m10-reports.md)。保存的 Markdown/JSON 描述生成时的版本；当前有效性通过 `show` 查询，示例候选清理后不再有效。M10 与阶段 3 已完成；M11 仍未开始。

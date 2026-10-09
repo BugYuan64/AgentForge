@@ -3,6 +3,7 @@
 import base64
 import binascii
 import re
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from xml.etree import ElementTree
@@ -120,6 +121,21 @@ def _parse_results(xml_path: Path, exit_code: int | None) -> dict[str, str]:
     if exit_code != int(failed):
         raise ValueError(f"JUnit outcomes are inconsistent with pytest exit {exit_code}")
     return {name: outcomes[name] for name in EXPECTED_TESTS}
+
+
+def validate_evidence(log_path: Path, xml_path: Path, exit_code: int | None) -> dict[str, str]:
+    """Require the saved XML to match the complete log's single JUnit transport."""
+    with tempfile.TemporaryDirectory(prefix="junit-", dir=xml_path.parent) as temporary:
+        extracted = Path(temporary) / "results.xml"
+        _extract_junit(log_path, extracted)
+        with xml_path.open("rb") as stream:
+            raw = stream.read(1024 * 1024 + 1)
+        if raw != extracted.read_bytes():
+            raise ValueError("complete log and XML evidence disagree")
+        try:
+            return _parse_results(extracted, exit_code)
+        except ElementTree.ParseError as exc:
+            raise ValueError(f"invalid JUnit XML: {exc}") from exc
 
 
 def parse_results(xml_path: Path, exit_code: int | None) -> dict[str, str]:

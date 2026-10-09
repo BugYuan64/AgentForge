@@ -68,14 +68,25 @@ class AcceptanceService:
         identity = self._read(directory / f"{pointer}.json").get("report_id")
         if not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{32}", identity):
             raise ValueError("invalid acceptance report id")
+        return self.load(workspace_id, identity)
+
+    def load(self, workspace_id: str, report_id: str | None = None) -> dict:
+        """Read an immutable saved record, or the latest attempt, without running checks."""
+        directory = self._directory(workspace_id)
+        identity = report_id
+        if identity is None:
+            identity = self._read(directory / "latest.json").get("report_id")
+        if not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{32}", identity):
+            raise ValueError("invalid acceptance report id")
         report = self._read(directory / f"{identity}.json")
-        if (report.get("report_id") != identity or report.get("workspace_id") != workspace_id
+        if (report.get("schema_version") != 1 or report.get("report_id") != identity
+                or report.get("workspace_id") != workspace_id
                 or report.get("baseline_commit") != self.manager.baseline_commit
                 or report.get("source_repository") != str(self.manager.source_repository)):
             raise ValueError("acceptance record provenance does not match this workspace")
         return report
 
-    def _policy_digest(self, fixed: dict[str, bytes]) -> str:
+    def policy_digest(self, fixed: dict[str, bytes]) -> str:
         policy = {
             "version": POLICY_VERSION, "fixed_commit": self.manager.baseline_commit,
             "files": content_digest(fixed), "command": CHECK_COMMAND,
@@ -84,7 +95,7 @@ class AcceptanceService:
         return hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()
 
     @staticmethod
-    def _valid_execution(run: dict, *, baseline: bool = False) -> bool:
+    def valid_execution(run: dict, *, baseline: bool = False) -> bool:
         outcomes = run.get("outcomes")
         if (run.get("state") != "completed" or run.get("exit_code") not in {0, 1}
                 or run.get("error") or not isinstance(outcomes, dict)
@@ -154,11 +165,11 @@ class AcceptanceService:
         report = self._new_report(workspace_id, "baseline")
         try:
             fixed = fixed_files(self.manager)
-            report["policy_digest"] = self._policy_digest(fixed)
+            report["policy_digest"] = self.policy_digest(fixed)
             snapshot = capture(self.manager, workspace_id, fixed, baseline=True)
             self._bind(report, snapshot)
             run = self._execute(report, snapshot, None)
-            if not self._valid_execution(run, baseline=True) or not re.fullmatch(
+            if not self.valid_execution(run, baseline=True) or not re.fullmatch(
                 r"sha256:[0-9a-f]{64}", run.get("image_id") or "",
             ):
                 report["state"] = "environment_error"
@@ -177,14 +188,14 @@ class AcceptanceService:
         report = self._new_report(workspace_id, "candidate")
         try:
             fixed = fixed_files(self.manager)
-            report["policy_digest"] = self._policy_digest(fixed)
+            report["policy_digest"] = self.policy_digest(fixed)
             baseline = self._load(workspace_id, "baseline")
             if (baseline.get("kind") != "baseline" or baseline.get("state") != "recorded"
                     or baseline.get("policy_digest") != report["policy_digest"]
                     or baseline.get("candidate_digest") != content_digest(fixed)
                     or baseline.get("head") != self.manager.baseline_commit
                     or not isinstance(baseline.get("execution"), dict)
-                    or not self._valid_execution(baseline["execution"], baseline=True)):
+                    or not self.valid_execution(baseline["execution"], baseline=True)):
                 raise ValueError("a valid baseline under the current policy is required")
             image_id = baseline["execution"].get("image_id")
             if not isinstance(image_id, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
@@ -193,7 +204,7 @@ class AcceptanceService:
             snapshot = capture(self.manager, workspace_id, fixed)
             self._bind(report, snapshot)
             run = self._execute(report, snapshot, image_id)
-            if not self._valid_execution(run) or run.get("image_id") != image_id:
+            if not self.valid_execution(run) or run.get("image_id") != image_id:
                 report["state"] = "environment_error"
                 report["error"] = run.get("error") or "candidate evidence or image is inconsistent"
             else:
@@ -224,7 +235,7 @@ class AcceptanceService:
             fixed = fixed_files(self.manager)
             current = capture(self.manager, workspace_id, fixed)
             valid = (
-                report["policy_digest"] == self._policy_digest(fixed)
+                report["policy_digest"] == self.policy_digest(fixed)
                 and report["head"] == current.head
                 and report["candidate_digest"] == current.digest
             )
